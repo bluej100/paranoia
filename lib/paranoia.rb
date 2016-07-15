@@ -188,7 +188,10 @@ module Paranoia
 
         association_class = association_class_name.constantize
         if association_class.paranoid?
-          association_class.only_deleted.where(association_find_conditions).first.try!(:restore, recursive: true)
+          association_class.only_deleted.
+            where("#{association.quoted_table_name}.#{paranoia_column} < ?", deleted_at + window).
+            where("#{association.quoted_table_name}.#{paranoia_column} > ?", deleted_at - window).
+            where(association_find_conditions).first.try!(:restore, recursive: true)
         end
       end
     end
