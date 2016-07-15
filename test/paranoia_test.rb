@@ -632,6 +632,29 @@ class ParanoiaTest < test_framework
     assert ParanoidModelWithForeignKeyBelong.with_deleted.reload.count != 0, "There should be a foreign_key record"
   end
 
+  def test_restore_with_recovery_window_and_has_one_association
+    has_one = ParanoidModelWithHasOne.create
+    first_child  = has_one.create_paranoid_model_with_belong
+    assert_equal ParanoidModelWithBelong.count, 1
+
+    with_stubbed_current_time(Time.at(0)) do
+      first_child.destroy
+    end
+    assert_equal ParanoidModelWithBelong.count, 0
+
+    second_child = has_one.create_paranoid_model_with_belong
+    assert_equal ParanoidModelWithBelong.count, 1
+    assert_equal ParanoidModelWithBelong.with_deleted.count, 2
+
+    with_stubbed_current_time(Time.at(3600)) do
+      has_one.destroy
+    end
+    ParanoidModelWithHasOne.restore(has_one.id, :recursive => true, :recovery_window => 5.minute)
+    assert_equal true,  has_one.reload.deleted_at.nil?
+    assert_equal false, first_child.reload.deleted_at.nil?
+    assert_equal true,  second_child.reload.deleted_at.nil?
+  end
+
   def test_new_restore_with_has_one_association
     # setup and destroy test objects
     hasOne = ParanoidModelWithHasOne.create
